@@ -14,6 +14,71 @@ export type Database = {
   }
   public: {
     Tables: {
+      assignment_students: {
+        Row: {
+          assignment_id: string
+          id: string
+          student_id: string
+        }
+        Insert: {
+          assignment_id: string
+          id?: string
+          student_id: string
+        }
+        Update: {
+          assignment_id?: string
+          id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignment_students_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assignments: {
+        Row: {
+          assign_to_all: boolean
+          created_at: string
+          created_by: string
+          description: string
+          due_date: string
+          id: string
+          priority: string
+          subject: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assign_to_all?: boolean
+          created_at?: string
+          created_by: string
+          description?: string
+          due_date: string
+          id?: string
+          priority?: string
+          subject?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assign_to_all?: boolean
+          created_at?: string
+          created_by?: string
+          description?: string
+          due_date?: string
+          id?: string
+          priority?: string
+          subject?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -40,6 +105,50 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      submissions: {
+        Row: {
+          assignment_id: string
+          content: string
+          feedback: string | null
+          file_url: string | null
+          grade: number | null
+          graded_at: string | null
+          id: string
+          student_id: string
+          submitted_at: string
+        }
+        Insert: {
+          assignment_id: string
+          content?: string
+          feedback?: string | null
+          file_url?: string | null
+          grade?: number | null
+          graded_at?: string | null
+          id?: string
+          student_id: string
+          submitted_at?: string
+        }
+        Update: {
+          assignment_id?: string
+          content?: string
+          feedback?: string | null
+          file_url?: string | null
+          grade?: number | null
+          graded_at?: string | null
+          id?: string
+          student_id?: string
+          submitted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submissions_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
