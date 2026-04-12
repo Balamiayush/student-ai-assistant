@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
+import { getDefaultRedirectPath } from "@/middleware/auth";
 import { useAuth, AppRole } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,8 +26,8 @@ export default function Auth() {
     );
   }
 
-  if (user && role) {
-    return <Navigate to={role === "teacher" ? "/teacher" : "/student"} replace />;
+  if (user) {
+    return <Navigate to={getDefaultRedirectPath(role)} replace />;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -1,5 +1,7 @@
 import { Navigate } from "react-router-dom";
 import { useAuth, AppRole } from "@/hooks/useAuth";
+import { requireAuth, getDefaultRedirectPath } from "@/middleware/auth";
+import { requireRole } from "@/middleware/role";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -7,7 +9,8 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, allowedRole }: ProtectedRouteProps) {
-  const { user, role, loading } = useAuth();
+  const authState = useAuth();
+  const { user, role, loading } = authState;
 
   if (loading) {
     return (
@@ -17,9 +20,14 @@ export function ProtectedRoute({ children, allowedRole }: ProtectedRouteProps) {
     );
   }
 
-  if (!user) return <Navigate to="/auth" replace />;
-  if (allowedRole && role !== allowedRole) {
-    return <Navigate to={role === "teacher" ? "/teacher" : "/student"} replace />;
+  // 1. Auth check
+  if (!requireAuth(authState)) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  // 2. Role check
+  if (!requireRole(role, allowedRole)) {
+    return <Navigate to={getDefaultRedirectPath(role)} replace />;
   }
 
   return <>{children}</>;
