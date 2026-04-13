@@ -20,15 +20,16 @@ type Intent = "assignments" | "deadlines" | "grades" | "submissions" | "greeting
 function detectIntent(message: string): Intent {
   const lower = message.toLowerCase().trim();
 
-  if (/\b(hi|hello|hey|good morning|good evening|good afternoon)\b/.test(lower)) return "greeting";
-  if (/\b(help|what can you|how do i|guide)\b/.test(lower)) return "help";
-  if (/\b(grade|score|mark|result|feedback|graded)\b/.test(lower)) return "grades";
-  if (/\b(deadline|due|when|overdue|due date|urgent)\b/.test(lower)) return "deadlines";
-  if (/\b(submit|submission|submitted|turned in)\b/.test(lower)) return "submissions";
-  if (/\b(assignment|homework|task|work|pending|my assignment)\b/.test(lower)) return "assignments";
+  if (/\b(hi|hello|hey|good morning|good evening|good afternoon|namaste|sup)\b/.test(lower)) return "greeting";
+  if (/\b(help|what can you|how do i|guide|options|features|capabilities)\b/.test(lower)) return "help";
+  if (/\b(grade|score|mark|result|feedback|graded|how did i do|my marks)\b/.test(lower)) return "grades";
+  if (/\b(deadline|due|when|overdue|due date|urgent|time left|remaining time)\b/.test(lower)) return "deadlines";
+  if (/\b(submit|submission|submitted|turned in|did i send|hand in)\b/.test(lower)) return "submissions";
+  if (/\b(assignment|homework|task|work|pending|todo|do list|current work)\b/.test(lower)) return "assignments";
 
   return "unknown";
 }
+
 
 // ─── Data fetchers ───────────────────────────────────────────
 async function fetchAssignmentsData(userId: string, role: string) {
@@ -70,6 +71,7 @@ async function fetchProfiles() {
 function formatAssignmentsResponse(
   assignments: any[],
   submissions: any[],
+  profiles: any[],
   role: string
 ): string {
   if (assignments.length === 0) {
@@ -84,8 +86,11 @@ function formatAssignmentsResponse(
     const due = new Date(a.due_date);
     const overdue = due < new Date();
     const submitted = submittedIds.has(a.id);
+    const teacher = profiles.find((p) => p.user_id === a.created_by);
+    const teacherName = teacher?.full_name || teacher?.email || "Unknown Teacher";
+    
     const status = submitted ? "✅ Submitted" : overdue ? "🔴 Overdue" : "🟡 Pending";
-    return `${i + 1}. **${a.title}** (${a.subject || "No subject"})\n   Due: ${format(due, "MMM d, yyyy")} · ${status}`;
+    return `${i + 1}. **${a.title}**\n   - Subject: ${a.subject || "General"}\n   - Assigned by: ${teacherName}\n   - Due: ${format(due, "MMM d, yyyy")}\n   - Status: ${status}`;
   });
 
   return `Here are your assignments:\n\n${lines.join("\n\n")}`;
@@ -105,13 +110,13 @@ function formatDeadlinesResponse(assignments: any[], submissions: any[]): string
   const lines = upcoming.map((a: any) => {
     const due = new Date(a.due_date);
     const distance = formatDistanceToNow(due, { addSuffix: true });
-    return `- **${a.title}** — due ${format(due, "MMM d")} (${distance})`;
+    return `- **${a.title}**\n  Due: ${format(due, "MMM d, yyyy")} (${distance})`;
   });
 
   return `📅 **Upcoming Deadlines:**\n\n${lines.join("\n")}`;
 }
 
-function formatGradesResponse(submissions: any[], assignments: any[]): string {
+function formatGradesResponse(submissions: any[], assignments: any[], profiles: any[]): string {
   const graded = submissions.filter((s: any) => s.grade !== null);
 
   if (graded.length === 0) {
@@ -120,8 +125,11 @@ function formatGradesResponse(submissions: any[], assignments: any[]): string {
 
   const lines = graded.map((s: any) => {
     const a = assignments.find((x: any) => x.id === s.assignment_id);
+    const teacher = profiles.find((p) => p.user_id === a?.created_by);
+    const teacherName = teacher?.full_name || teacher?.email || "Teacher";
+    
     const gradeEmoji = (s.grade ?? 0) >= 80 ? "🟢" : (s.grade ?? 0) >= 60 ? "🟡" : "🔴";
-    return `- ${gradeEmoji} **${a?.title ?? "Unknown"}** — ${s.grade}/100${s.feedback ? `\n  _Feedback: "${s.feedback}"_` : ""}`;
+    return `- ${gradeEmoji} **${a?.title ?? "Unknown"}** — ${s.grade}/100\n  _Graded by: ${teacherName}_${s.feedback ? `\n  _Feedback: "${s.feedback}"_` : ""}`;
   });
 
   const avg = Math.round(graded.reduce((sum: number, s: any) => sum + (s.grade ?? 0), 0) / graded.length);
@@ -145,10 +153,10 @@ function formatSubmissionsResponse(
     const lines = submissions.map((s: any) => {
       const a = assignments.find((x: any) => x.id === s.assignment_id);
       const p = profiles.find((x: any) => x.user_id === s.student_id);
-      const gradeStatus = s.grade !== null ? `Graded: ${s.grade}/100` : "⏳ Pending grading";
-      return `- **${a?.title ?? "Unknown"}** by ${p?.full_name || p?.email || "Unknown"} — ${gradeStatus}`;
+      const gradeStatus = s.grade !== null ? `✅ Graded: ${s.grade}/100` : "⏳ Pending grading";
+      return `- **${a?.title ?? "Unknown"}** by ${p?.full_name || p?.email || "Unknown Student"}\n  Status: ${gradeStatus}`;
     });
-    return `📋 **All Submissions:**\n\n${lines.join("\n")}`;
+    return `📋 **Submission Status for Your Assignments:**\n\n${lines.join("\n")}`;
   } else {
     const lines = submissions.map((s: any) => {
       const a = assignments.find((x: any) => x.id === s.assignment_id);
@@ -158,6 +166,7 @@ function formatSubmissionsResponse(
     return `📋 **Your Submissions:**\n\n${lines.join("\n")}`;
   }
 }
+
 
 // ─── AI Fallback ─────────────────────────────────────────────
 async function getAIFallback(message: string): Promise<string> {
@@ -251,18 +260,19 @@ export function SmartChatbot() {
 
         switch (intent) {
           case "assignments":
-            response = formatAssignmentsResponse(assignments, submissions, role ?? "student");
+            response = formatAssignmentsResponse(assignments, submissions, profiles, role ?? "student");
             break;
           case "deadlines":
             response = formatDeadlinesResponse(assignments, submissions);
             break;
           case "grades":
-            response = formatGradesResponse(submissions, assignments);
+            response = formatGradesResponse(submissions, assignments, profiles);
             break;
           case "submissions":
             response = formatSubmissionsResponse(submissions, assignments, profiles, role ?? "student");
             break;
         }
+
       } else {
         response = await getAIFallback(query);
       }

@@ -32,7 +32,11 @@ export function useAuth() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         if (session?.user) {
-          const role = await fetchRole(session.user.id);
+          // Try to get role from metadata first for immediate response
+          let role = session.user.user_metadata?.role as AppRole | null;
+          if (!role) {
+            role = await fetchRole(session.user.id);
+          }
           setState({ user: session.user, session, role, loading: false });
         } else {
           setState({ user: null, session: null, role: null, loading: false });
@@ -42,7 +46,10 @@ export function useAuth() {
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
-        const role = await fetchRole(session.user.id);
+        let role = session.user.user_metadata?.role as AppRole | null;
+        if (!role) {
+          role = await fetchRole(session.user.id);
+        }
         setState({ user: session.user, session, role, loading: false });
       } else {
         setState({ user: null, session: null, role: null, loading: false });
@@ -51,6 +58,7 @@ export function useAuth() {
 
     return () => subscription.unsubscribe();
   }, [fetchRole]);
+
 
   const signUp = async (email: string, password: string, fullName: string, role: AppRole) => {
     const { error } = await supabase.auth.signUp({

@@ -22,5 +22,7 @@ export function requireAuth(authState: AuthContextType): boolean {
  */
 export function getDefaultRedirectPath(role: AppRole | null): string {
   if (role === "teacher") return "/teacher/dashboard";
-  return "/student/dashboard"; // Default fallback
+  if (role === "student") return "/student/dashboard";
+  return "/auth"; // Redirect to auth if no role found
 }
+
