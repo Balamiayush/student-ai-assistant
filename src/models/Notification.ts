@@ -13,9 +13,6 @@ export interface Notification {
 }
 
 export const NotificationModel = {
-  /**
-   * Fetch all notifications for a specific user
-   */
   async findByUser(userId: string): Promise<Notification[]> {
     const { data, error } = await supabase
       .from("notifications")
@@ -24,15 +21,11 @@ export const NotificationModel = {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return data as Notification[];
+    return (data ?? []) as unknown as Notification[];
   },
 
-  /**
-   * Create a new notification
-   */
   async create(notification: Omit<Notification, "id" | "created_at" | "read">): Promise<Notification> {
-    const { data, error } = await supabase
-      .from("notifications")
+    const { data, error } = await (supabase.from("notifications") as any)
       .insert({ ...notification, read: false })
       .select()
       .single();
@@ -41,28 +34,18 @@ export const NotificationModel = {
     return data as Notification;
   },
 
-  /**
-   * Mark a specific notification as read
-   */
   async markAsRead(id: string): Promise<void> {
-    const { error } = await supabase
-      .from("notifications")
+    const { error } = await (supabase.from("notifications") as any)
       .update({ read: true })
       .eq("id", id);
-      
     if (error) throw error;
   },
 
-  /**
-   * Mark all notifications for a user as read
-   */
   async markAllAsRead(userId: string): Promise<void> {
-    const { error } = await supabase
-      .from("notifications")
+    const { error } = await (supabase.from("notifications") as any)
       .update({ read: true })
       .eq("user_id", userId)
       .eq("read", false);
-      
     if (error) throw error;
   }
 };
