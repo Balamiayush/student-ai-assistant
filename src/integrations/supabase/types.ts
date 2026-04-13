@@ -150,36 +150,6 @@ export type Database = {
           },
         ]
       }
-      notifications: {
-        Row: {
-          id: string
-          user_id: string
-          message: string
-          type: string
-          read: boolean
-          related_id: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          message: string
-          type?: string
-          read?: boolean
-          related_id?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          message?: string
-          type?: string
-          read?: boolean
-          related_id?: string | null
-          created_at?: string
-        }
-        Relationships: []
-      }
       user_roles: {
         Row: {
           id: string
