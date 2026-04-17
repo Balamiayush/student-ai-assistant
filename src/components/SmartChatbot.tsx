@@ -170,29 +170,24 @@ function formatSubmissionsResponse(
 
 // ─── AI Fallback ─────────────────────────────────────────────
 async function getAIFallback(message: string): Promise<string> {
-  // Use HuggingFace free inference API as fallback
   try {
-    const response = await fetch(
-      "https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ inputs: message }),
-      }
-    );
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    });
     if (response.ok) {
       const data = await response.json();
-      if (data?.generated_text) return data.generated_text;
+      if (data?.response) return data.response;
     }
-  } catch {
-    // Fallback silently
+  } catch (err) {
+    console.error("DeepSeek proxy error:", err);
   }
 
   // Local fallback responses
   const fallbacks = [
-    "I'm your StudyPilot assistant! Try asking me about:\n\n- 📝 **\"What are my assignments?\"**\n- 📅 **\"When are my deadlines?\"**\n- 📊 **\"Show my grades\"**\n- 📋 **\"My submissions\"**",
-    "I'm not sure I understand that. But I can help you with your assignments, deadlines, grades, and submissions! Just ask. 😊",
-    "Hmm, that's beyond what I can help with right now. Try asking about your coursework — assignments, deadlines, or grades!",
+    "I'm your StudyPilot assistant! Ask me about:\n\n- 📝 **\"What are my assignments?\"**\n- 📅 **\"When are my deadlines?\"**\n- 📊 **\"Show my grades\"**",
+    "I'm currently unable to reach my main AI brain. But I can still fetch your database records! Try asking \"my assignments\".",
   ];
   return fallbacks[Math.floor(Math.random() * fallbacks.length)];
 }
@@ -350,7 +345,7 @@ export function SmartChatbot() {
                     )}
                   >
                     {msg.role === "assistant" ? (
-                      <Bot className="w-4 h-4 text-primary-foreground" />
+                      <Sparkles className="w-4 h-4 text-primary-foreground" />
                     ) : (
                       <User className="w-4 h-4 text-secondary-foreground" />
                     )}
@@ -376,7 +371,7 @@ export function SmartChatbot() {
               {isLoading && (
                 <div className="flex gap-2">
                   <div className="w-7 h-7 rounded-lg bg-gradient-primary flex items-center justify-center flex-shrink-0">
-                    <Bot className="w-4 h-4 text-primary-foreground" />
+                    <Sparkles className="w-4 h-4 text-primary-foreground" />
                   </div>
                   <div className="bg-secondary rounded-xl px-4 py-3">
                     <div className="flex gap-1">

@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Clock, CheckCircle, Send, Star, BookOpen, AlertTriangle,
   FileText, Link as LinkIcon, Award, TrendingUp, CalendarDays, UserCircle,
@@ -56,6 +57,7 @@ export default function StudentDashboard() {
   const [submitFileUrl, setSubmitFileUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
@@ -71,6 +73,7 @@ export default function StudentDashboard() {
     if (aRes.data) setAssignments(aRes.data);
     if (sRes.data) setSubmissions(sRes.data);
     if (pRes.data) setProfiles(pRes.data);
+    setIsLoading(false);
   };
 
   const getTeacherName = (teacherId: string) => {
@@ -153,26 +156,38 @@ export default function StudentDashboard() {
     >
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {statCards.map((s, i) => (
-          <motion.div
-            key={s.label}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.08, duration: 0.4 }}
-          >
-            <Card className="border-border hover:shadow-elevated transition-shadow duration-300">
-              <CardContent className="p-5 flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-xl ${s.gradient} flex items-center justify-center flex-shrink-0`}>
-                  <s.icon className="w-6 h-6 text-primary-foreground" />
-                </div>
-                <div>
-                  <p className="text-3xl font-display font-bold text-foreground">{s.value}</p>
-                  <p className="text-xs text-muted-foreground font-medium">{s.label}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
+        {isLoading
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i} className="border-border">
+                <CardContent className="p-5 flex items-center gap-4">
+                  <Skeleton className="w-12 h-12 rounded-xl" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-8 w-16" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          : statCards.map((s, i) => (
+              <motion.div
+                key={s.label}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.08, duration: 0.4 }}
+              >
+                <Card className="border-border hover:shadow-lg hover:-translate-y-1 transition-all duration-300 bg-card/60 backdrop-blur-sm">
+                  <CardContent className="p-5 flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl ${s.gradient} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                      <s.icon className="w-6 h-6 text-primary-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-3xl font-display font-bold text-foreground">{s.value}</p>
+                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{s.label}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
       </div>
 
       <Tabs defaultValue="assignments" className="space-y-6">
@@ -188,19 +203,28 @@ export default function StudentDashboard() {
         {/* Assignments Tab */}
         <TabsContent value="assignments" className="space-y-4">
           <AnimatePresence mode="popLayout">
-            {assignments.length === 0 && (
+            {isLoading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <Card key={i} className="border-border">
+                  <CardContent className="p-5 space-y-3">
+                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                    <Skeleton className="h-4 w-full" />
+                  </CardContent>
+                </Card>
+              ))
+            ) : assignments.length === 0 ? (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <Card>
+                <Card className="bg-card/40 backdrop-blur-sm border-dashed">
                   <CardContent className="p-16 text-center">
                     <BookOpen className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
-                    <p className="text-muted-foreground font-medium">No assignments yet.</p>
-                    <p className="text-sm text-muted-foreground/60 mt-1">Your teacher hasn't created any assignments.</p>
+                    <p className="text-foreground font-medium">No assignments yet.</p>
+                    <p className="text-sm text-muted-foreground mt-1">Your teacher hasn't created any assignments.</p>
                   </CardContent>
                 </Card>
               </motion.div>
-            )}
-
-            {assignments.map((a, i) => {
+            ) : (
+              assignments.map((a, i) => {
               const sub = getSubmission(a.id);
               const overdue = isOverdue(a.due_date);
               const prio = priorityConfig[a.priority] ?? priorityConfig.medium;
@@ -364,7 +388,8 @@ export default function StudentDashboard() {
                   </Card>
                 </motion.div>
               );
-            })}
+            })
+            )}
           </AnimatePresence>
         </TabsContent>
 

@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Plus, Users, ClipboardCheck, FileText, Award, Search,
   CalendarDays, ExternalLink, CheckCircle2, Clock,
@@ -78,6 +79,7 @@ export default function TeacherDashboard() {
   const [assignToAll, setAssignToAll] = useState(true);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
@@ -103,6 +105,7 @@ export default function TeacherDashboard() {
         .map((p) => ({ user_id: p.user_id, full_name: p.full_name, email: p.email }));
       setStudents(studentList);
     }
+    setIsLoading(false);
   };
 
   const resetCreateForm = () => {
@@ -367,26 +370,38 @@ export default function TeacherDashboard() {
     >
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {statCards.map((s, i) => (
-          <motion.div
-            key={s.label}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.08, duration: 0.4 }}
-          >
-            <Card className="border-border hover:shadow-elevated transition-shadow duration-300">
-              <CardContent className="p-5 flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-xl ${s.gradient} flex items-center justify-center flex-shrink-0`}>
-                  <s.icon className="w-6 h-6 text-primary-foreground" />
-                </div>
-                <div>
-                  <p className="text-3xl font-display font-bold text-foreground">{s.value}</p>
-                  <p className="text-xs text-muted-foreground font-medium">{s.label}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
+        {isLoading
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i} className="border-border">
+                <CardContent className="p-5 flex items-center gap-4">
+                  <Skeleton className="w-12 h-12 rounded-xl" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-8 w-16" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          : statCards.map((s, i) => (
+              <motion.div
+                key={s.label}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.08, duration: 0.4 }}
+              >
+                <Card className="border-border hover:shadow-lg hover:-translate-y-1 transition-all duration-300 bg-card/60 backdrop-blur-sm">
+                  <CardContent className="p-5 flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl ${s.gradient} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                      <s.icon className="w-6 h-6 text-primary-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-3xl font-display font-bold text-foreground">{s.value}</p>
+                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{s.label}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
       </div>
 
       <Tabs defaultValue="assignments" className="space-y-6">
@@ -414,19 +429,28 @@ export default function TeacherDashboard() {
         {/* Assignments Tab */}
         <TabsContent value="assignments" className="space-y-4">
           <AnimatePresence mode="popLayout">
-            {assignments.length === 0 && (
+            {isLoading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <Card key={i} className="border-border">
+                  <CardContent className="p-5 space-y-3">
+                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                    <Skeleton className="h-4 w-full" />
+                  </CardContent>
+                </Card>
+              ))
+            ) : assignments.length === 0 ? (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <Card>
+                <Card className="bg-card/40 backdrop-blur-sm border-dashed">
                   <CardContent className="p-16 text-center">
                     <FileText className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
-                    <p className="text-muted-foreground font-medium">No assignments yet.</p>
-                    <p className="text-sm text-muted-foreground/60 mt-1">Click "Create Assignment" to get started.</p>
+                    <p className="text-foreground font-medium">No assignments yet.</p>
+                    <p className="text-sm text-muted-foreground mt-1">Click "Create Assignment" to get started.</p>
                   </CardContent>
                 </Card>
               </motion.div>
-            )}
-
-            {assignments.map((a, i) => {
+            ) : (
+              assignments.map((a, i) => {
               const subs = getAssignmentSubmissions(a.id);
               const gradedSubs = subs.filter((s) => s.grade !== null);
               const completionPercent = students.length > 0 ? Math.round((subs.length / students.length) * 100) : 0;
@@ -478,7 +502,8 @@ export default function TeacherDashboard() {
                   </Card>
                 </motion.div>
               );
-            })}
+            })
+            )}
           </AnimatePresence>
         </TabsContent>
 
