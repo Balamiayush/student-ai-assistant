@@ -10,9 +10,6 @@ export interface Notification {
   created_at: string;
 }
 
-/**
- * Fetch all notifications for the current user, newest first.
- */
 export async function fetchNotifications(userId: string): Promise<Notification[]> {
   const { data, error } = await supabase
     .from("notifications")
@@ -24,12 +21,9 @@ export async function fetchNotifications(userId: string): Promise<Notification[]
     console.error("Failed to fetch notifications:", error.message);
     return [];
   }
-  return data ?? [];
+  return (data ?? []) as unknown as Notification[];
 }
 
-/**
- * Count unread notifications.
- */
 export async function countUnread(userId: string): Promise<number> {
   const { count, error } = await supabase
     .from("notifications")
@@ -40,30 +34,21 @@ export async function countUnread(userId: string): Promise<number> {
   return count ?? 0;
 }
 
-/**
- * Mark a single notification as read.
- */
 export async function markAsRead(notificationId: string) {
-  await supabase.from("notifications").update({ read: true }).eq("id", notificationId);
+  await (supabase.from("notifications") as any).update({ read: true }).eq("id", notificationId);
 }
 
-/**
- * Mark all notifications as read for a user.
- */
 export async function markAllAsRead(userId: string) {
-  await supabase.from("notifications").update({ read: true }).eq("user_id", userId).eq("read", false);
+  await (supabase.from("notifications") as any).update({ read: true }).eq("user_id", userId).eq("read", false);
 }
 
-/**
- * Send a notification to one user.
- */
 export async function sendNotification(
   userId: string,
   message: string,
   type: "assignment" | "submission" | "grade" | "info" = "info",
   relatedId?: string
 ) {
-  const { error } = await supabase.from("notifications").insert({
+  const { error } = await (supabase.from("notifications") as any).insert({
     user_id: userId,
     message,
     type,
@@ -72,9 +57,6 @@ export async function sendNotification(
   if (error) console.error("Failed to send notification:", error.message);
 }
 
-/**
- * Send a notification to multiple users.
- */
 export async function sendNotificationBulk(
   userIds: string[],
   message: string,
@@ -88,6 +70,6 @@ export async function sendNotificationBulk(
     type,
     related_id: relatedId ?? null,
   }));
-  const { error } = await supabase.from("notifications").insert(rows);
+  const { error } = await (supabase.from("notifications") as any).insert(rows);
   if (error) console.error("Failed to send bulk notifications:", error.message);
 }

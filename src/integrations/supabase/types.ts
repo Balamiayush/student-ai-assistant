@@ -79,6 +79,36 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          read: boolean
+          related_id: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          read?: boolean
+          related_id?: string | null
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          read?: boolean
+          related_id?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -149,36 +179,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      notifications: {
-        Row: {
-          id: string
-          user_id: string
-          message: string
-          type: string
-          read: boolean
-          related_id: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          message: string
-          type?: string
-          read?: boolean
-          related_id?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          message?: string
-          type?: string
-          read?: boolean
-          related_id?: string | null
-          created_at?: string
-        }
-        Relationships: []
       }
       user_roles: {
         Row: {
