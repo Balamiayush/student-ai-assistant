@@ -10,6 +10,8 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import StudentDashboard from "./pages/StudentDashboard";
 import TeacherDashboard from "./pages/TeacherDashboard";
+import TeacherTasks from "./pages/TeacherTasks";
+import TeacherSettings from "./pages/TeacherSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +27,8 @@ const App = () => (
           <Route path="/auth" element={<GuestRoute><Auth /></GuestRoute>} />
           <Route path="/student/dashboard" element={<ProtectedRoute allowedRole="student"><StudentDashboard /></ProtectedRoute>} />
           <Route path="/teacher/dashboard" element={<ProtectedRoute allowedRole="teacher"><TeacherDashboard /></ProtectedRoute>} />
+          <Route path="/teacher/tasks" element={<ProtectedRoute allowedRole="teacher"><TeacherTasks /></ProtectedRoute>} />
+          <Route path="/teacher/settings" element={<ProtectedRoute allowedRole="teacher"><TeacherSettings /></ProtectedRoute>} />
 
           {/* Legacy redirects */}
           <Route path="/student" element={<Navigate to="/student/dashboard" replace />} />

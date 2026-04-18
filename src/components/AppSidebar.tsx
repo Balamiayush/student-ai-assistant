@@ -28,11 +28,9 @@ export function AppSidebar() {
       {/* Brand */}
       <div className="h-16 flex items-center px-6 border-b border-border/50">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center shadow-glow">
-            <BookOpen className="w-4 h-4 text-primary-foreground" />
-          </div>
+          <img src="https://res.cloudinary.com/dfajjqglx/image/upload/v1776504606/image_817_ogrwjm.png" className="w-[10rem]" alt="" />
           <div>
-            <h1 className="font-display font-bold text-foreground tracking-tight leading-none text-lg">StudyPilot</h1>
+            {/* <h1 className="font-display font-bold text-foreground tracking-tight leading-none text-lg"></h1> */}
           </div>
         </div>
       </div>

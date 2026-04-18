@@ -389,14 +389,15 @@ export default function TeacherDashboard() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.08, duration: 0.4 }}
               >
-                <Card className="border-border hover:shadow-lg hover:-translate-y-1 transition-all duration-300 bg-card/60 backdrop-blur-sm">
+                <Card className="border-border hover:shadow-glow hover:-translate-y-1 transition-all duration-300 bg-card/40 backdrop-blur-md overflow-hidden group">
+                  <div className={`absolute top-0 right-0 w-24 h-24 ${s.gradient} opacity-[0.03] rounded-bl-full transition-all group-hover:opacity-10`} />
                   <CardContent className="p-5 flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-xl ${s.gradient} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                    <div className={`w-12 h-12 rounded-xl ${s.gradient} flex items-center justify-center flex-shrink-0 shadow-sm transition-transform group-hover:scale-110`}>
                       <s.icon className="w-6 h-6 text-primary-foreground" />
                     </div>
                     <div>
                       <p className="text-3xl font-display font-bold text-foreground">{s.value}</p>
-                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{s.label}</p>
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.1em]">{s.label}</p>
                     </div>
                   </CardContent>
                 </Card>
