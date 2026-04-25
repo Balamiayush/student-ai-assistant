@@ -13,8 +13,9 @@ CREATE TABLE public.assignments (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-ALTER TABLE public.assignments ENABLE ROW LEVEL SECURITY;
-
+ALTER TABLE public.assignments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.submissions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.assignment_students DISABLE ROW LEVEL SECURITY;
 -- Junction table
 CREATE TABLE public.assignment_students (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

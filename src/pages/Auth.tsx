@@ -10,8 +10,8 @@ import { BookOpen, GraduationCap, Users } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Auth() {
-  const { user, role, loading, signIn, signUp } = useAuth();
-  const [isLogin, setIsLogin] = useState(true);
+  const { user, role, loading, signIn, signUp, resetPassword } = useAuth();
+  const [mode, setMode] = useState<"login" | "signup" | "forgot-password">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -34,17 +34,43 @@ export default function Auth() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      if (isLogin) {
+      if (mode === "login") {
         const { error } = await signIn(email, password);
         if (error) toast.error(error.message);
-      } else {
+      } else if (mode === "signup") {
         const { error } = await signUp(email, password, fullName, selectedRole);
+        if (error) {
+          if (error.message.toLowerCase().includes("rate limit")) {
+            toast.error("Email rate limit exceeded. If you are developing, please disable 'Confirm email' in Supabase Auth settings.");
+          } else {
+            toast.error(error.message);
+          }
+        } else {
+          toast.success("Account created! Check your email to confirm (if enabled).");
+        }
+      } else if (mode === "forgot-password") {
+        const { error } = await resetPassword(email);
         if (error) toast.error(error.message);
-        else toast.success("Account created! Check your email to confirm.");
+        else {
+          toast.success("Password reset link sent to your email!");
+          setMode("login");
+        }
       }
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const getTitle = () => {
+    if (mode === "login") return "Welcome back";
+    if (mode === "signup") return "Create account";
+    return "Reset password";
+  };
+
+  const getDescription = () => {
+    if (mode === "login") return "Sign in to your StudyPilot account";
+    if (mode === "signup") return "Join StudyPilot as a student or teacher";
+    return "Enter your email to receive a password reset link";
   };
 
   return (
@@ -54,12 +80,12 @@ export default function Auth() {
           <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-primary flex items-center justify-center mb-2">
             <BookOpen className="w-7 h-7 text-primary-foreground" />
           </div>
-          <CardTitle className="font-display text-2xl">{isLogin ? "Welcome back" : "Create account"}</CardTitle>
-          <CardDescription>{isLogin ? "Sign in to your StudyPilot account" : "Join StudyPilot as a student or teacher"}</CardDescription>
+          <CardTitle className="font-display text-2xl">{getTitle()}</CardTitle>
+          <CardDescription>{getDescription()}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
+            {mode === "signup" && (
               <>
                 <div className="space-y-2">
                   <Label htmlFor="fullName">Full Name</Label>
@@ -94,19 +120,43 @@ export default function Auth() {
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" minLength={6} required />
-            </div>
+            {mode !== "forgot-password" && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Password</Label>
+                  {mode === "login" && (
+                    <button
+                      type="button"
+                      onClick={() => setMode("forgot-password")}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
+                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" minLength={6} required />
+              </div>
+            )}
             <Button type="submit" className="w-full bg-gradient-primary text-primary-foreground" disabled={submitting}>
-              {submitting ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
+              {submitting ? "Please wait..." : mode === "login" ? "Sign In" : mode === "signup" ? "Create Account" : "Send Reset Link"}
             </Button>
           </form>
           <div className="mt-4 text-center text-sm text-muted-foreground">
-            {isLogin ? "Don't have an account? " : "Already have an account? "}
-            <button onClick={() => setIsLogin(!isLogin)} className="text-primary font-medium hover:underline">
-              {isLogin ? "Sign up" : "Sign in"}
-            </button>
+            {mode === "login" ? (
+              <>
+                Don't have an account?{" "}
+                <button onClick={() => setMode("signup")} className="text-primary font-medium hover:underline">
+                  Sign up
+                </button>
+              </>
+            ) : (
+              <>
+                Already have an account?{" "}
+                <button onClick={() => setMode("login")} className="text-primary font-medium hover:underline">
+                  Sign in
+                </button>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chatbot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f0f2f5;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .chat-container {
+            width: 400px;
+            height: 600px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 30px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.2rem;
+            border-radius: 15px 15px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-controls button {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            margin-left: 10px;
+            transition: opacity 0.2s;
+        }
+
+        .header-controls button:hover {
+            opacity: 0.8;
+        }
+
+        .chat-body {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 15px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .user-message {
+            background: #667eea;
+            color: white;
+            align-self: flex-end;
+            border-radius: 15px 15px 0 15px;
+        }
+
+        .bot-message {
+            background: #f0f2f5;
+            color: #1f1f1f;
+            align-self: flex-start;
+            border-radius: 15px 15px 15px 0;
+        }
+
+        .typing-indicator {
+            display: inline-block;
+            padding: 10px;
+        }
+
+        .typing-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #999;
+            margin-right: 4px;
+            animation: typingAnimation 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typingAnimation {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-5px); }
+        }
+
+        .input-container {
+            padding: 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+        }
+
+        #user-input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        #user-input:focus {
+            border-color: #667eea;
+        }
+
+        #send-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        #send-btn:hover {
+            background: #764ba2;
+        }
+
+        #send-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h3>AI Assistant</h3>
+            <div class="header-controls">
+                <button id="minimize-btn">−</button>
+                <button id="close-btn">×</button>
+            </div>
+        </div>
+        <div class="chat-body" id="chat-body">
+            <div class="message bot-message">Hello! I'm your AI assistant powered by DeepSeek. How can I help you today?</div>
+        </div>
+        <div class="input-container">
+            <input type="text" id="user-input" placeholder="Type your message..." autocomplete="off">
+            <button id="send-btn">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const chatBody = document.getElementById('chat-body');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const minimizeBtn = document.getElementById('minimize-btn');
+        const closeBtn = document.getElementById('close-btn');
+        let isMinimized = false;
+
+        // API Configuration
+        const API_KEY = "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";
+        const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+        const MODEL = "deepseek/deepseek-chat-v3-0324";
+
+        // Conversation history
+        let conversationHistory = [
+            {
+                role: "system",
+                content: "You are a helpful AI assistant. Be friendly, concise, and helpful."
+            }
+        ];
+
+        function addMessage(text, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', isUser ? 'user-message' : 'bot-message');
+            messageDiv.textContent = text;
+            chatBody.appendChild(messageDiv);
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+
+        function showTypingIndicator() {
+            const typingDiv = document.createElement('div');
+            typingDiv.classList.add('message', 'bot-message', 'typing-indicator');
+            typingDiv.id = 'typing-indicator';
+            typingDiv.innerHTML = `
+                <span class="typing-dot"></span>
+                <span class="typing-dot"></span>
+                <span class="typing-dot"></span>
+            `;
+            chatBody.appendChild(typingDiv);
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+
+        function hideTypingIndicator() {
+            const typingIndicator = document.getElementById('typing-indicator');
+            if (typingIndicator) {
+                typingIndicator.remove();
+            }
+        }
+
+        async function getAIResponse(userMessage) {
+            // Add user message to history
+            conversationHistory.push({
+                role: "user",
+                content: userMessage
+            });
+
+            showTypingIndicator();
+            sendBtn.disabled = true;
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${API_KEY}`,
+                        "HTTP-Referer": window.location.href,
+                        "X-Title": "AI Chatbot",
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        model: MODEL,
+                        messages: conversationHistory
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API request failed with status ${response.status}`);
+                }
+
+                const data = await response.json();
+                const aiMessage = data.choices[0].message.content;
+
+                // Add AI response to history
+                conversationHistory.push({
+                    role: "assistant",
+                    content: aiMessage
+                });
+
+                hideTypingIndicator();
+                addMessage(aiMessage);
+            } catch (error) {
+                hideTypingIndicator();
+                console.error("Error fetching AI response:", error);
+                addMessage("Sorry, I encountered an error. Please try again.");
+            } finally {
+                sendBtn.disabled = false;
+                userInput.focus();
+            }
+        }
+
+        function handleUserInput() {
+            const message = userInput.value.trim();
+            if (message) {
+                addMessage(message, true);
+                getAIResponse(message);
+                userInput.value = '';
+            }
+        }
+
+        // Event Listeners
+        sendBtn.addEventListener('click', handleUserInput);
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleUserInput();
+        });
+
+        minimizeBtn.addEventListener('click', () => {
+            isMinimized = !isMinimized;
+            chatBody.classList.toggle('hidden');
+            document.querySelector('.input-container').classList.toggle('hidden');
+            minimizeBtn.textContent = isMinimized ? '+' : '−';
+        });
+
+        closeBtn.addEventListener('click', () => {
+            document.querySelector('.chat-container').style.display = 'none';
+        });
+
+        // Focus input on load
+        userInput.focus();
+    </script>
+</body>
+</html>
