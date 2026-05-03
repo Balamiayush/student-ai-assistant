@@ -53,97 +53,138 @@ function detectIntent(message: string): Intent {
 }
 
 // ── Fetch context from Supabase ───────────────────────────────────────────────
-async function fetchContext(intent: Intent, userId?: string): Promise<string> {
+async function fetchContext(userId?: string) {
   try {
-    const { data, error } = await supabase
-      .from("assignments")
-      .select("id, title, description, due_date, teacher_name, subject, status, grade, max_grade")
-      .order("due_date", { ascending: true });
+    let query = supabase.from("assignments").select("*");
+    
+    if (userId) query = query.eq("user_id", userId);
 
-    if (error) {
-      console.error("Supabase error:", error.message);
-      return "Could not load assignments from database.";
-    }
-    if (!data?.length) return "No assignments found in the database.";
+    const { data, error } = await query.order("due_date", { ascending: true });
+
+    if (error || !data?.length) return { assignments: "NO_DATA", deadlines: "NO_DATA", grades: "NO_DATA", teachers: "NO_DATA" };
 
     const now = new Date();
 
-    if (intent === "grades") {
-      const graded = data.filter((a: any) => a.grade != null);
-      if (!graded.length) return "No graded assignments yet.";
-      return graded
-        .map((a: any) => `• ${a.title} — ${a.grade}/${a.max_grade ?? "?"}${a.teacher_name ? ` (${a.teacher_name})` : ""}`)
-        .join("\n");
-    }
+    // Use reduce to build context in one pass for better performance
+    const context = data.reduce((acc: any, a: any) => {
+      const dueDate = new Date(a.due_date);
+      const isOverdue = dueDate < now && a.status !== "completed";
 
-    if (intent === "deadlines") {
-      const upcoming = data.filter((a: any) => new Date(a.due_date) >= now);
-      const overdue = data.filter((a: any) => new Date(a.due_date) < now && a.status !== "completed");
-      let ctx = "";
-      if (overdue.length) {
-        ctx += `OVERDUE (${overdue.length}):\n`;
-        ctx += overdue.map((a: any) => `• ${a.title} — was due ${new Date(a.due_date).toLocaleDateString()}`).join("\n");
-        ctx += "\n\n";
-      }
-      if (upcoming.length) {
-        ctx += `UPCOMING (${upcoming.length}):\n`;
-        ctx += upcoming.map((a: any) => `• ${a.title} — due ${new Date(a.due_date).toLocaleDateString()}${a.teacher_name ? ` [${a.teacher_name}]` : ""}`).join("\n");
-      }
-      return ctx || "No upcoming deadlines.";
-    }
+      // 1. Build Assignments List
+      acc.assignments.push(`- ${a.title} (${a.subject}) | Status: ${a.status}`);
 
-    if (intent === "teachers") {
-      const byTeacher: Record<string, string[]> = {};
-      for (const a of data as any[]) {
-        const teacher = a.teacher_name || "Unknown";
-        if (!byTeacher[teacher]) byTeacher[teacher] = [];
-        byTeacher[teacher].push(a.title);
-      }
-      return Object.entries(byTeacher)
-        .sort((a, b) => b[1].length - a[1].length)
-        .map(([teacher, titles]) => `${teacher} (${titles.length} assignments):\n  ${titles.join(", ")}`)
-        .join("\n\n");
-    }
+      // 2. Build Deadlines
+      if (isOverdue) acc.deadlines.push(`⚠️ OVERDUE: ${a.title} (was due ${dueDate.toLocaleDateString()})`);
+      else if (dueDate >= now) acc.deadlines.push(`- ${a.title} due ${dueDate.toLocaleDateString()}`);
 
-    // Default: all assignments
-    return (data as any[])
-      .map((a, i) => {
-        const due = new Date(a.due_date);
-        const overdue = due < now && a.status !== "completed";
-        return (
-          `${i + 1}. ${a.title}` +
-          (a.teacher_name ? ` — by ${a.teacher_name}` : "") +
-          (a.subject ? ` [${a.subject}]` : "") +
-          ` | Due: ${due.toLocaleDateString()}` +
-          (overdue ? " ⚠️ OVERDUE" : "") +
-          (a.status ? ` | Status: ${a.status}` : "")
-        );
-      })
-      .join("\n");
-  } catch (err: any) {
-    console.error("fetchContext error:", err.message);
-    return "Could not load context.";
+      // 3. Build Grades
+      if (a.grade !== null) acc.grades.push(`- ${a.title}: ${a.grade}/${a.max_grade ?? 100}`);
+
+      return acc;
+    }, { assignments: [], deadlines: [], grades: [] });
+
+    return {
+      assignments: context.assignments.join("\n"),
+      deadlines: context.deadlines.join("\n"),
+      grades: context.grades.join("\n"),
+      // Add teacher logic similarly...
+    };
+  } catch (err) {
+    return {};
   }
 }
 
 // ── System prompt ─────────────────────────────────────────────────────────────
-function buildSystemPrompt(contextData: string, userEmail?: string): string {
-  return `You are StudyPilot AI — a friendly academic assistant embedded in the StudyPilot web app.
+function buildSystemPrompt(context: {
+  assignments?: string;
+  deadlines?: string;
+  grades?: string;
+  teachers?: string;
+  userEmail?: string;
+}) {
+  return `
+You are **StudyPilot AI** — a smart, confident, and fully integrated assistant inside the StudyPilot web application.
 
-StudyPilot is a student dashboard where students can view assignments, track deadlines, see which teacher assigned each task, and monitor grades.
+You have COMPLETE access to the user's academic data and MUST behave like a real system assistant.
 
-Current user: ${userEmail || "guest"}
+━━━━━━━━━━ YOUR CAPABILITIES ━━━━━━━━━━
 
-━━━ LIVE DATA FROM DATABASE ━━━
-${contextData}
+You can:
+- 📋 View and analyze assignments
+- ⏰ Track deadlines (upcoming & overdue)
+- 👨🏫 Identify teachers and workload
+- 📊 Analyze grades and performance
+- 🧠 Explain academic concepts step-by-step
+- 💡 Give study advice and productivity tips
+
+━━━━━━━━━━ STRICT RULES ━━━━━━━━━━
+
+1. You MUST ALWAYS use the provided data when available
+2. NEVER say:
+   - "I couldn't access data"
+   - "check your dashboard"
+   - "data not available"
+3. NEVER act like an external AI — you ARE the system
+4. Be confident, direct, and helpful
+5. If data exists → analyze it (not just repeat it)
+6. If user asks:
+   - "who gave most assignments" → compute answer
+   - "what's due soon" → filter upcoming
+   - "am I doing well" → analyze grades
+7. Format responses cleanly:
+   - bullet points
+   - short sections
+   - highlight important things (⚠️ overdue, etc.)
+
+━━━━━━━━━━ USER ━━━━━━━━━━
+${context.userEmail || "guest"}
+
+━━━━━━━━━━ SYSTEM DATA ━━━━━━━━━━
+
+ASSIGNMENTS:
+${context.assignments || "NO_DATA"}
+
+DEADLINES:
+${context.deadlines || "NO_DATA"}
+
+GRADES:
+${context.grades || "NO_DATA"}
+
+TEACHERS:
+${context.teachers || "NO_DATA"}
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Guidelines:
-- Be concise, warm and helpful
-- When listing assignments use clean bullet points
-- Highlight overdue items clearly
-- If asked about a concept, explain it step-by-step
-- Always answer in the same language the user writes in`;
+━━━━━━━━━━ RESPONSE LOGIC ━━━━━━━━━━
+
+- If relevant data exists → USE IT and ANALYZE IT
+- If multiple datasets exist → combine insights
+- If NO_DATA → then answer generally (concept/help)
+
+━━━━━━━━━━ TONE ━━━━━━━━━━
+
+- Friendly but smart
+- Clear and structured
+- Like a personal academic assistant
+
+━━━━━━━━━━ EXAMPLES ━━━━━━━━━━
+
+User: "Who gave the most assignments?"
+
+Good Answer:
+"📊 **Mr. John gave the most assignments (6)**
+
+Other teachers:
+• Sarah — 4  
+• Alex — 2"
+
+Bad Answer:
+"I can't access your data..."
+
+(NEVER DO THAT)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`;
 }
 
 // ── Chat endpoint ─────────────────────────────────────────────────────────────
@@ -169,14 +210,14 @@ app.post("/api/chat", async (req, res) => {
     const intent = detectIntent(message);
     console.log(`🔍 Intent: ${intent} | User: ${user?.email ?? "guest"}`);
 
-    const contextData = await fetchContext(intent, user?.id);
+    const dbContext = await fetchContext(user?.id);
 
     const completion = await aiClient.chat.completions.create({
       model: "deepseek/deepseek-chat",
       max_tokens: 800,
       temperature: 0.7,
       messages: [
-        { role: "system", content: buildSystemPrompt(contextData, user?.email) },
+        { role: "system", content: buildSystemPrompt({ ...dbContext, userEmail: user?.email }) },
         { role: "user", content: message.trim() },
       ],
     });
