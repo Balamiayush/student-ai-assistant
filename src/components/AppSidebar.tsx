@@ -1,27 +1,16 @@
 import { useLocation, Link } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
-import { BookOpen, LayoutDashboard, CheckSquare, Settings, LogOut, FileText, CalendarDays } from "lucide-react";
+import { GraduationCap, LayoutDashboard, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Button } from "./ui/button";
 
 export function AppSidebar() {
-  const { role, signOut } = useAuth();
   const location = useLocation();
-
-  const studentLinks = [
+  const links = [
     { name: "Dashboard", href: "/student/dashboard", icon: LayoutDashboard },
     { name: "Assignments", href: "/student/assignments", icon: FileText },
-    { name: "Schedule", href: "/student/schedule", icon: CalendarDays },
+    { name: "Insights", href: "/student/insights", icon: GraduationCap },
   ];
-
-  const teacherLinks = [
-    { name: "Dashboard", href: "/teacher/dashboard", icon: LayoutDashboard },
-    { name: "Manage Tasks", href: "/teacher/tasks", icon: CheckSquare },
-    { name: "Settings", href: "/teacher/settings", icon: Settings },
-  ];
-
-  const links = role === "teacher" ? teacherLinks : studentLinks;
 
   return (
     <aside className="w-64 h-screen max-h-screen sticky top-0 left-0 bg-card/60 backdrop-blur-xl border-r border-border hidden md:flex flex-col z-40">
@@ -69,15 +58,8 @@ export function AppSidebar() {
       </nav>
 
       {/* Footer Actions */}
-      <div className="p-4 border-t border-border/50">
-        <Button
-          variant="ghost"
-          onClick={signOut}
-          className="w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-        >
-          <LogOut className="w-4 h-4 mr-3" />
-          Sign Out
-        </Button>
+      <div className="p-4 border-t border-border/50 text-center">
+        <p className="text-xs text-muted-foreground">© 2024 StudyPilot AI</p>
       </div>
     </aside>
   );

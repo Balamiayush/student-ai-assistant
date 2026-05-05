@@ -95,7 +95,7 @@ function TypingIndicator() {
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Main Component ─────────────────────────────────────────────────────────── 
 
 export function SmartChatbot() {
   const { user, session } = useAuth() as { user: any; session: any };

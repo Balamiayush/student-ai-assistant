@@ -9,6 +9,8 @@ import { GuestRoute } from "@/components/GuestRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import StudentDashboard from "./pages/StudentDashboard";
+import Assignments from "./pages/Assignments";
+import StudentInsights from "./pages/StudentInsights";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import TeacherTasks from "./pages/TeacherTasks";
 import TeacherSettings from "./pages/TeacherSettings";
@@ -24,15 +26,72 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<GuestRoute><Auth /></GuestRoute>} />
-          <Route path="/student/dashboard" element={<ProtectedRoute allowedRole="student"><StudentDashboard /></ProtectedRoute>} />
-          <Route path="/teacher/dashboard" element={<ProtectedRoute allowedRole="teacher"><TeacherDashboard /></ProtectedRoute>} />
-          <Route path="/teacher/tasks" element={<ProtectedRoute allowedRole="teacher"><TeacherTasks /></ProtectedRoute>} />
-          <Route path="/teacher/settings" element={<ProtectedRoute allowedRole="teacher"><TeacherSettings /></ProtectedRoute>} />
+          <Route
+            path="/auth"
+            element={
+              <GuestRoute>
+                <Auth />
+              </GuestRoute>
+            }
+          />
+          <Route
+            path="/student/dashboard"
+            element={
+              <ProtectedRoute allowedRole="student">
+                <StudentDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/assignments"
+            element={
+              <ProtectedRoute allowedRole="student">
+                <Assignments />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/insights"
+            element={
+              <ProtectedRoute allowedRole="student">
+                <StudentInsights />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/teacher/dashboard"
+            element={
+              <ProtectedRoute allowedRole="teacher">
+                <TeacherDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/teacher/tasks"
+            element={
+              <ProtectedRoute allowedRole="teacher">
+                <TeacherTasks />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/teacher/settings"
+            element={
+              <ProtectedRoute allowedRole="teacher">
+                <TeacherSettings />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Legacy redirects */}
-          <Route path="/student" element={<Navigate to="/student/dashboard" replace />} />
-          <Route path="/teacher" element={<Navigate to="/teacher/dashboard" replace />} />
+          <Route
+            path="/student"
+            element={<Navigate to="/student/dashboard" replace />}
+          />
+          <Route
+            path="/teacher"
+            element={<Navigate to="/teacher/dashboard" replace />}
+          />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

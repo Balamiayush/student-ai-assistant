@@ -1,7 +1,5 @@
 import { ReactNode } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { BookOpen, LogOut, GraduationCap, Users } from "lucide-react";
+import { BookOpen, GraduationCap } from "lucide-react";
 import { motion } from "framer-motion";
 import { NotificationBell } from "@/components/NotificationBell";
 import { SmartChatbot } from "@/components/SmartChatbot";
@@ -15,11 +13,8 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children, title, subtitle, actions }: DashboardLayoutProps) {
-  const { user, role, signOut } = useAuth();
-  const RoleIcon = role === "teacher" ? Users : GraduationCap;
-
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-background text-foreground">
       {/* Sidebar (Desktop) */}
       <AppSidebar />
 
@@ -39,10 +34,8 @@ export function DashboardLayout({ children, title, subtitle, actions }: Dashboar
 
             <div className="flex items-center gap-3">
               <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-secondary/60">
-                <RoleIcon className="w-4 h-4 text-primary" />
-                <span className="text-xs font-semibold text-foreground capitalize">{role}</span>
-                <span className="text-muted-foreground">·</span>
-                <span className="text-xs text-muted-foreground truncate max-w-[150px]">{user?.email}</span>
+                <GraduationCap className="w-4 h-4 text-primary" />
+                <span className="text-xs font-semibold text-foreground capitalize">Student Mode</span>
               </div>
               <NotificationBell />
             </div>
