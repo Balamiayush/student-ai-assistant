@@ -24,7 +24,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 
-interface AssignmentRow {
+interface Assignment {
   id: string;
   title: string;
   description: string;
@@ -35,7 +35,7 @@ interface AssignmentRow {
   created_at: string;
 }
 
-interface SubmissionRow {
+interface Submission {
   id: string;
   assignment_id: string;
   student_id: string;
@@ -46,26 +46,23 @@ interface SubmissionRow {
   submitted_at: string;
 }
 
-interface ProfileRow {
-  user_id: string;
+interface StudentProfile {
+  id: string; // Using 'id' instead of 'user_id'
   full_name: string;
   email: string;
+  specialization?: string;
+  level?: string;
 }
 
-interface StudentOption {
-  user_id: string;
-  full_name: string;
-  email: string;
-}
 
 export default function TeacherDashboard() {
   const { user } = useAuth();
-  const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
-  const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
-  const [profiles, setProfiles] = useState<ProfileRow[]>([]);
-  const [students, setStudents] = useState<StudentOption[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [students, setStudents] = useState<StudentProfile[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
-  const [gradingSubmission, setGradingSubmission] = useState<SubmissionRow | null>(null);
+  const [gradingSubmission, setGradingSubmission] = useState<Submission | null>(null);
+  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [gradeValue, setGradeValue] = useState("");
   const [feedbackValue, setFeedbackValue] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -82,30 +79,85 @@ export default function TeacherDashboard() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
     fetchData();
   }, [user]);
 
-  const fetchData = async () => {
-    const [aRes, sRes, pRes, studentRolesRes] = await Promise.all([
-      supabase.from("assignments").select("*").eq("created_by", user!.id).order("created_at", { ascending: false }),
-      supabase.from("submissions").select("*"),
-      supabase.from("profiles").select("user_id, full_name, email"),
-      supabase.from("user_roles").select("user_id").eq("role", "student"),
-    ]);
-    if (aRes.data) setAssignments(aRes.data);
-    if (sRes.data) setSubmissions(sRes.data);
-    if (pRes.data) setProfiles(pRes.data);
 
-    // Build student list by joining user_roles with profiles
-    if (studentRolesRes.data && pRes.data) {
-      const studentIds = new Set(studentRolesRes.data.map((r) => r.user_id));
-      const studentList = pRes.data
-        .filter((p) => studentIds.has(p.user_id))
-        .map((p) => ({ user_id: p.user_id, full_name: p.full_name, email: p.email }));
+  const fetchData = async () => {
+    if (!user?.id) return;
+    setIsLoading(true);
+
+    try {
+      console.log("TeacherDashboard: Fetching assignments for teacher:", user.id);
+      // 1. Fetch Teacher's Assignments
+      const { data: assignmentsData, error: assignmentsError } = await supabase
+        .from("assignments")
+        .select("*")
+        .eq("created_by", user.id)
+        .order("created_at", { ascending: false });
+
+      if (assignmentsError) {
+        console.error("TeacherDashboard: Assignments Fetch Error:", assignmentsError);
+        throw assignmentsError;
+      }
+      console.log("TeacherDashboard: Assignments fetched:", assignmentsData?.length || 0);
+      setAssignments(assignmentsData || []);
+
+      const assignmentIds = assignmentsData?.map(a => a.id) || [];
+
+      // 2. Fetch Submissions
+      let submissionsData: Submission[] = [];
+      if (assignmentIds.length > 0) {
+        console.log("TeacherDashboard: Fetching submissions for assignments:", assignmentIds);
+        const { data: sData, error: sError } = await supabase
+          .from("submissions")
+          .select("*")
+          .in("assignment_id", assignmentIds);
+        
+        if (sError) {
+          console.error("TeacherDashboard: Submissions Fetch Error:", sError);
+          throw sError;
+        }
+        console.log("TeacherDashboard: Submissions fetched:", sData?.length || 0);
+        submissionsData = sData || [];
+      }
+      setSubmissions(submissionsData);
+
+
+      // 3. Fetch All Student Profiles & Roles
+      const [profilesRes, studentRolesRes] = await Promise.all([
+        supabase.from("profiles").select("id, full_name, email, specialization, level"),
+        supabase.from("user_roles").select("user_id").eq("role", "student"),
+      ]);
+
+
+      if (profilesRes.error) throw profilesRes.error;
+      if (studentRolesRes.error) throw studentRolesRes.error;
+
+      // 4. Build student list
+      const studentIds = new Set(studentRolesRes.data?.map((r) => r.user_id) || []);
+      const studentList = (profilesRes.data || [])
+        .filter((p: any) => studentIds.has(p.id))
+        .map((p: any) => ({
+          user_id: p.id,
+          full_name: p.full_name || p.email.split('@')[0], // Fallback to email prefix
+          email: p.email,
+          specialization: p.specialization || "General",
+          level: p.level || "Level 4"
+        }));
+
       setStudents(studentList);
+
+    } catch (error: any) {
+      console.error("TeacherDashboard Fetch Error:", error);
+      toast.error(error.message || "Failed to load dashboard data");
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const resetCreateForm = () => {
@@ -205,7 +257,9 @@ export default function TeacherDashboard() {
     }
   };
 
-  const getProfile = (userId: string) => profiles.find((p) => p.user_id === userId);
+  const getStudent = (userId: string) => students.find((s) => s.id === userId);
+
+  
   const getAssignmentSubmissions = (assignmentId: string) =>
     submissions.filter((s) => s.assignment_id === assignmentId);
 
@@ -215,34 +269,38 @@ export default function TeacherDashboard() {
     );
   };
 
-  // Filtered submissions for search
+  // Memoized stats
+  const stats = {
+    totalAssignments: assignments.length,
+    totalSubmissions: submissions.length,
+    needsGrading: submissions.filter((s) => s.grade === null).length,
+    gradedCount: submissions.filter((s) => s.grade !== null).length,
+  };
+
+  // Filtered submissions for search — optimized
   const filteredSubmissions = submissions.filter((s) => {
     if (!searchQuery) return true;
     const assignment = assignments.find((a) => a.id === s.assignment_id);
-    const profile = getProfile(s.student_id);
+    const student = getStudent(s.student_id);
     const q = searchQuery.toLowerCase();
     return (
       assignment?.title.toLowerCase().includes(q) ||
-      profile?.full_name.toLowerCase().includes(q) ||
-      profile?.email.toLowerCase().includes(q)
+      student?.full_name?.toLowerCase().includes(q) ||
+      student?.email?.toLowerCase().includes(q)
     );
   });
 
-  // Stats
-  const needsGrading = submissions.filter((s) => s.grade === null).length;
-  const gradedCount = submissions.filter((s) => s.grade !== null).length;
-
   const statCards = [
-    { label: "Assignments", value: assignments.length, icon: FileText, gradient: "bg-gradient-primary" },
-    { label: "Submissions", value: submissions.length, icon: ClipboardCheck, gradient: "bg-gradient-accent" },
-    { label: "Needs Grading", value: needsGrading, icon: Clock, gradient: "bg-gradient-warm" },
-    { label: "Graded", value: gradedCount, icon: CheckCircle2, gradient: "bg-gradient-primary" },
+    { label: "Assignments", value: stats.totalAssignments, icon: FileText, gradient: "bg-gradient-primary" },
+    { label: "Submissions", value: stats.totalSubmissions, icon: ClipboardCheck, gradient: "bg-gradient-accent" },
+    { label: "Needs Grading", value: stats.needsGrading, icon: Clock, gradient: "bg-gradient-warm" },
+    { label: "Graded", value: stats.gradedCount, icon: CheckCircle2, gradient: "bg-gradient-primary" },
   ];
 
   return (
     <DashboardLayout
       title="Teacher Dashboard"
-      subtitle={`${assignments.length} assignment${assignments.length !== 1 ? "s" : ""} · ${needsGrading} pending grading`}
+      subtitle={`${assignments.length} assignment${assignments.length !== 1 ? "s" : ""} · ${stats.needsGrading} pending grading`}
       actions={
         <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) resetCreateForm(); }}>
           <DialogTrigger asChild>
@@ -329,13 +387,14 @@ export default function TeacherDashboard() {
                         <div className="space-y-2">
                           {students.map((s) => (
                             <label
-                              key={s.user_id}
+                              key={s.id}
                               className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary/60 cursor-pointer transition-colors"
                             >
                               <Checkbox
-                                checked={selectedStudents.includes(s.user_id)}
-                                onCheckedChange={() => toggleStudentSelection(s.user_id)}
+                                checked={selectedStudents.includes(s.id)}
+                                onCheckedChange={() => toggleStudentSelection(s.id)}
                               />
+
                               <div className="min-w-0">
                                 <p className="text-sm font-medium text-foreground truncate">
                                   {s.full_name || "Unnamed"}
@@ -414,6 +473,9 @@ export default function TeacherDashboard() {
             <TabsTrigger value="submissions" className="gap-2">
               <ClipboardCheck className="w-4 h-4" /> Submissions
             </TabsTrigger>
+            <TabsTrigger value="students" className="gap-2">
+              <Users className="w-4 h-4" /> Students
+            </TabsTrigger>
           </TabsList>
 
           <div className="relative">
@@ -464,12 +526,15 @@ export default function TeacherDashboard() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.04 }}
                 >
-                  <Card className="border-border hover:shadow-elevated transition-all duration-200">
+                  <Card 
+                    className="border-border hover:shadow-elevated transition-all duration-200 cursor-pointer group"
+                    onClick={() => setSelectedAssignment(a)}
+                  >
                     <CardContent className="p-5">
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-2">
-                            <h3 className="font-display font-semibold text-foreground">{a.title}</h3>
+                            <h3 className="font-display font-semibold text-foreground group-hover:text-primary transition-colors">{a.title}</h3>
                             <Badge variant="outline" className="text-xs">{a.subject}</Badge>
                             <Badge variant="outline" className="text-xs capitalize">{a.priority}</Badge>
                             <Badge
@@ -558,7 +623,7 @@ export default function TeacherDashboard() {
                             )}
                           </div>
                           <p className="text-sm text-muted-foreground mb-2">
-                            By: <span className="font-medium text-foreground">{profile?.full_name || profile?.email || "Unknown"}</span>
+                            By: <span className="font-medium text-foreground">{getStudent(s.student_id)?.full_name || getStudent(s.student_id)?.email || "Unknown Student"}</span>
                           </p>
 
                           {/* Submission content preview */}
@@ -669,7 +734,138 @@ export default function TeacherDashboard() {
             })}
           </AnimatePresence>
         </TabsContent>
+
+        {/* Students Tab */}
+        <TabsContent value="students" className="space-y-4">
+          <Card className="border-border">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-secondary/40 text-[10px] uppercase font-bold tracking-widest text-muted-foreground border-b border-border/50">
+                    <tr>
+                      <th className="px-6 py-4">Student Name</th>
+                      <th className="px-6 py-4">Specialization</th>
+                      <th className="px-6 py-4">Level</th>
+                      <th className="px-6 py-4">Email</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/50">
+                    {students.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-6 py-10 text-center text-muted-foreground italic">No students found.</td>
+                      </tr>
+                    ) : (
+                      students.map((s) => (
+                        <tr key={s.id} className="hover:bg-secondary/20 transition-colors">
+                          <td className="px-6 py-4 font-medium text-foreground">{s.full_name || "Unnamed"}</td>
+
+                          <td className="px-6 py-4">
+                            <Badge variant="secondary" className="text-[10px]">{s.specialization || "N/A"}</Badge>
+                          </td>
+                          <td className="px-6 py-4">
+                             <Badge variant="outline" className="text-[10px]">{s.level || "N/A"}</Badge>
+                          </td>
+                          <td className="px-6 py-4 text-muted-foreground">{s.email}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* Assignment Details & Tracking Modal */}
+      <Dialog open={!!selectedAssignment} onOpenChange={(open) => !open && setSelectedAssignment(null)}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          {selectedAssignment && (
+            <>
+              <DialogHeader>
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="outline" className="text-xs uppercase tracking-wider">{selectedAssignment.subject}</Badge>
+                  <Badge variant="outline" className="text-xs uppercase tracking-wider capitalize">{selectedAssignment.priority}</Badge>
+                </div>
+                <DialogTitle className="text-2xl font-display font-bold">{selectedAssignment.title}</DialogTitle>
+                <CardDescription className="mt-2">{selectedAssignment.description}</CardDescription>
+              </DialogHeader>
+
+              <div className="space-y-6 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 rounded-xl bg-secondary/40 border border-border/50">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Due Date</p>
+                    <p className="text-sm font-medium">{format(new Date(selectedAssignment.due_date), "PPP p")}</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-secondary/40 border border-border/50">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Total Submissions</p>
+                    <p className="text-sm font-medium">{getAssignmentSubmissions(selectedAssignment.id).length} / {students.length}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-sm font-bold flex items-center gap-2">
+                    <Users className="w-4 h-4 text-primary" />
+                    Submission Tracker
+                  </h4>
+                  
+                  <div className="space-y-4">
+                    {/* Submitted */}
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-green-500 mb-2 px-1">
+                        Submitted ({getAssignmentSubmissions(selectedAssignment.id).length})
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {getAssignmentSubmissions(selectedAssignment.id).length === 0 ? (
+                          <p className="text-xs text-muted-foreground italic px-1">No submissions yet.</p>
+                        ) : (
+                          getAssignmentSubmissions(selectedAssignment.id).map(s => {
+                            const student = getStudent(s.student_id);
+                            return (
+                              <div key={s.id} className="flex items-center justify-between p-2 rounded-lg bg-green-500/5 border border-green-500/10">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-medium truncate">{student?.full_name || "Unknown"}</p>
+                                  <p className="text-[9px] text-muted-foreground truncate">{format(new Date(s.submitted_at), "MMM d, HH:mm")}</p>
+                                </div>
+                                {s.file_url && (
+                                  <a href={s.file_url} target="_blank" rel="noopener noreferrer" className="p-1 hover:bg-green-500/10 rounded transition-colors">
+                                    <ExternalLink className="w-3.5 h-3.5 text-green-600" />
+                                  </a>
+                                )}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Missing */}
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-red-500 mb-2 px-1">
+                        Not Submitted ({students.length - getAssignmentSubmissions(selectedAssignment.id).length})
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {students.filter(stud => !getAssignmentSubmissions(selectedAssignment.id).some(sub => sub.student_id === stud.user_id)).length === 0 ? (
+                          <p className="text-xs text-muted-foreground italic px-1">All students have submitted!</p>
+                        ) : (
+                          students
+                            .filter(stud => !getAssignmentSubmissions(selectedAssignment.id).some(sub => sub.student_id === stud.user_id))
+                            .map(stud => (
+                              <div key={stud.user_id} className="p-2 rounded-lg bg-red-500/5 border border-red-500/10">
+                                <p className="text-xs font-medium truncate text-red-700/70">{stud.full_name || "Unknown"}</p>
+                                <p className="text-[9px] text-red-500/50 truncate">{stud.email}</p>
+                              </div>
+                            ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

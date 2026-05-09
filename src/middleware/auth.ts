@@ -21,8 +21,14 @@ export function requireAuth(authState: AuthContextType): boolean {
  * Provides the default redirect path for a logged-in user based on their role.
  */
 export function getDefaultRedirectPath(role: AppRole | null): string {
-  if (role === "teacher") return "/teacher/dashboard";
-  if (role === "student") return "/student/dashboard";
-  return "/auth"; // Redirect to auth if no role found
-}
+  switch (role) {
+    case "teacher":
+      return "/teacher/dashboard";
 
+    case "student":
+      return "/student/dashboard";
+
+    default:
+      return "/auth";
+  }
+}

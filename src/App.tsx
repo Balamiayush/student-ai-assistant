@@ -11,19 +11,25 @@ import Auth from "./pages/Auth";
 import StudentDashboard from "./pages/StudentDashboard";
 import Assignments from "./pages/Assignments";
 import StudentInsights from "./pages/StudentInsights";
+import StudentProfile from "./pages/StudentProfile";
 import TeacherDashboard from "./pages/TeacherDashboard";
+import TeacherProfile from "./pages/TeacherProfile";
 import TeacherTasks from "./pages/TeacherTasks";
 import TeacherSettings from "./pages/TeacherSettings";
 import NotFound from "./pages/NotFound";
+
+import { AuthProvider } from "./contexts/AuthContext";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+
         <Routes>
           <Route path="/" element={<Index />} />
           <Route
@@ -59,6 +65,14 @@ const App = () => (
             }
           />
           <Route
+            path="/student/profile"
+            element={
+              <ProtectedRoute allowedRole="student">
+                <StudentProfile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/teacher/dashboard"
             element={
               <ProtectedRoute allowedRole="teacher">
@@ -82,6 +96,14 @@ const App = () => (
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/teacher/profile"
+            element={
+              <ProtectedRoute allowedRole="teacher">
+                <TeacherProfile />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Legacy redirects */}
           <Route
@@ -96,7 +118,9 @@ const App = () => (
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
+
 
 export default App;

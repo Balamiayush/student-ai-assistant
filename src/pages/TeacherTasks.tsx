@@ -37,22 +37,59 @@ export default function TeacherTasks() {
 
   useEffect(() => {
     if (user) fetchAssignments();
+    else setIsLoading(false);
   }, [user]);
 
-  const fetchAssignments = async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase
-      .from("assignments")
-      .select("*")
-      .eq("created_by", user!.id)
-      .order("created_at", { ascending: false });
 
-    if (error) {
-      toast.error("Failed to load assignments");
-    } else {
+  const fetchAssignments = async () => {
+    if (!user?.id) return;
+    setIsLoading(true);
+    try {
+      console.log("TeacherTasks: Fetching assignments for teacher:", user.id);
+      const { data, error } = await supabase
+        .from("assignments")
+        .select("*")
+        .eq("created_by", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("TeacherTasks: Assignments Fetch Error:", error);
+        throw error;
+      }
+      console.log("TeacherTasks: Assignments fetched:", data?.length || 0);
       setAssignments(data || []);
+
+    } catch (err: any) {
+      console.error("Error fetching assignments:", err);
+      toast.error(err.message || "Failed to load assignments");
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
+  };
+  const handleAddAssignment = async (data: { title: string; description: string; subject: string; dueDate: Date; priority: string }) => {
+    if (!user?.id) return;
+    try {
+      const { error } = await supabase
+        .from("assignments")
+        .insert({
+          title: data.title,
+          description: data.description,
+          subject: data.subject,
+          due_date: data.dueDate.toISOString(),
+          priority: data.priority,
+          created_by: user.id,
+          assign_to_all: true,
+        });
+
+      if (error) throw error;
+      
+      toast.success("Assignment created!");
+      fetchAssignments();
+      setIsAddOpen(false);
+    } catch (err: any) {
+      console.error("Error creating assignment:", err);
+      toast.error(err.message || "Failed to create assignment");
+    }
   };
 
   const filteredAssignments = assignments.filter((a) =>
@@ -220,15 +257,9 @@ export default function TeacherTasks() {
                           </span>
                         </div>
                         <div className="flex -space-x-2">
-                          {/* Avatars placeholder for assigned students */}
+                          {/* Real count of students instead of hardcoded JD/AS */}
                           <div className="w-7 h-7 rounded-full border-2 border-card bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">
-                            JD
-                          </div>
-                          <div className="w-7 h-7 rounded-full border-2 border-card bg-accent/20 flex items-center justify-center text-[10px] font-bold text-accent">
-                            AS
-                          </div>
-                          <div className="w-7 h-7 rounded-full border-2 border-card bg-secondary flex items-center justify-center text-[10px] font-bold text-muted-foreground">
-                            +12
+                            +ALL
                           </div>
                         </div>
                       </div>

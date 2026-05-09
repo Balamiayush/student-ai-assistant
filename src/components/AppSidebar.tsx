@@ -1,26 +1,35 @@
 import { useLocation, Link } from "react-router-dom";
-import { GraduationCap, LayoutDashboard, FileText } from "lucide-react";
+import { GraduationCap, LayoutDashboard, FileText, UserCircle, Settings, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { Button } from "./ui/button";
+import { useAuth } from "@/hooks/useAuth";
 
 export function AppSidebar() {
   const location = useLocation();
-  const links = [
+  const { role } = useAuth();
+
+  const studentLinks = [
     { name: "Dashboard", href: "/student/dashboard", icon: LayoutDashboard },
     { name: "Assignments", href: "/student/assignments", icon: FileText },
     { name: "Insights", href: "/student/insights", icon: GraduationCap },
+    { name: "Profile", href: "/student/profile", icon: UserCircle },
   ];
+
+  const teacherLinks = [
+    { name: "Dashboard", href: "/teacher/dashboard", icon: LayoutDashboard },
+    { name: "Tasks", href: "/teacher/tasks", icon: ClipboardList },
+    { name: "Profile", href: "/teacher/profile", icon: UserCircle },
+    { name: "Settings", href: "/teacher/settings", icon: Settings },
+  ];
+
+  const links = role === "teacher" ? teacherLinks : studentLinks;
 
   return (
     <aside className="w-64 h-screen max-h-screen sticky top-0 left-0 bg-card/60 backdrop-blur-xl border-r border-border hidden md:flex flex-col z-40">
       {/* Brand */}
       <div className="h-16 flex items-center px-6 border-b border-border/50">
         <div className="flex items-center gap-3">
-          <img src="https://res.cloudinary.com/dfajjqglx/image/upload/v1776504606/image_817_ogrwjm.png" className="w-[10rem]" alt="" />
-          <div>
-            {/* <h1 className="font-display font-bold text-foreground tracking-tight leading-none text-lg"></h1> */}
-          </div>
+          <img src="https://res.cloudinary.com/dfajjqglx/image/upload/v1776504606/image_817_ogrwjm.png" className="w-[10rem]" alt="Gulf College Logo" />
         </div>
       </div>
 
@@ -28,7 +37,7 @@ export function AppSidebar() {
       <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
         <p className="px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">Main Menu</p>
         {links.map((link) => {
-          const isActive = location.pathname === link.href || (link.name === "Dashboard" && location.pathname.includes("dashboard"));
+          const isActive = location.pathname === link.href || (link.name === "Dashboard" && location.pathname.includes("dashboard") && location.pathname.includes(role || ""));
           return (
             <Link key={link.name} to={link.href}>
               <div
@@ -59,7 +68,7 @@ export function AppSidebar() {
 
       {/* Footer Actions */}
       <div className="p-4 border-t border-border/50 text-center">
-        <p className="text-xs text-muted-foreground">© 2024 StudyPilot AI</p>
+        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">© 2024 Gulf College</p>
       </div>
     </aside>
   );

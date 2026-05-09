@@ -15,6 +15,8 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [specialization, setSpecialization] = useState("");
+  const [level, setLevel] = useState("");
   const [selectedRole, setSelectedRole] = useState<AppRole>("student");
   const [submitting, setSubmitting] = useState(false);
 
@@ -33,12 +35,26 @@ export default function Auth() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    const emailRegex = /^\d{7}@gulfcollege\.edu\.om$/;
+    if (mode === "signup" && selectedRole === "student" && !emailRegex.test(email)) {
+      toast.error("Student email must be 7 digits followed by @gulfcollege.edu.om");
+      setSubmitting(false);
+      return;
+    }
+
     try {
       if (mode === "login") {
         const { error } = await signIn(email, password);
         if (error) toast.error(error.message);
       } else if (mode === "signup") {
-        const { error } = await signUp(email, password, fullName, selectedRole);
+        const { error } = await signUp(
+          email, 
+          password, 
+          fullName, 
+          selectedRole, 
+          selectedRole === "student" ? specialization : undefined,
+          selectedRole === "student" ? level : undefined
+        );
         if (error) {
           if (error.message.toLowerCase().includes("rate limit")) {
             toast.error("Email rate limit exceeded. If you are developing, please disable 'Confirm email' in Supabase Auth settings.");
@@ -68,8 +84,8 @@ export default function Auth() {
   };
 
   const getDescription = () => {
-    if (mode === "login") return "Sign in to your StudyPilot account";
-    if (mode === "signup") return "Join StudyPilot as a student or teacher";
+    if (mode === "login") return "Sign in to your Gulf College account";
+    if (mode === "signup") return "Join Gulf College as a student or teacher";
     return "Enter your email to receive a password reset link";
   };
 
@@ -114,11 +130,33 @@ export default function Auth() {
                     ))}
                   </div>
                 </div>
+                {selectedRole === "student" && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="specialization">Major/Specialization</Label>
+                      <Input id="specialization" value={specialization} onChange={(e) => setSpecialization(e.target.value)} placeholder="e.g. CS" required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="level">Level</Label>
+                      <Input id="level" value={level} onChange={(e) => setLevel(e.target.value)} placeholder="e.g. 4" required />
+                    </div>
+                  </div>
+                )}
               </>
             )}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required />
+              <Input 
+                id="email" 
+                type="email" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                placeholder={selectedRole === "student" && mode === "signup" ? "1234567@gulfcollege.edu.om" : "you@example.com"} 
+                required 
+              />
+              {selectedRole === "student" && mode === "signup" && (
+                <p className="text-[10px] text-muted-foreground">Format: 7 numbers + @gulfcollege.edu.om</p>
+              )}
             </div>
             {mode !== "forgot-password" && (
               <div className="space-y-2">

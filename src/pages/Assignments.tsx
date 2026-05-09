@@ -1,33 +1,30 @@
 import { useAssignments } from "@/hooks/useAssignments";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { AssignmentCard } from "@/components/AssignmentCard";
-import { AddAssignmentDialog } from "@/components/AddAssignmentDialog";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, PlusCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { BookOpen } from "lucide-react";
 
 export default function Assignments() {
-  const { assignments, add, toggleComplete, remove } = useAssignments();
+  const { assignments, loading } = useAssignments();
 
   return (
     <DashboardLayout 
       title="Assignments" 
       subtitle="Manage your tasks and deadlines"
-      actions={
-        <AddAssignmentDialog onAdd={add}>
-          <Button className="bg-gradient-primary text-primary-foreground shadow-glow">
-            <PlusCircle className="w-4 h-4 mr-2" /> Add Assignment
-          </Button>
-        </AddAssignmentDialog>
-      }
     >
       <div className="space-y-6">
-        {assignments.length === 0 ? (
+        {loading ? (
+          <div className="grid grid-cols-1 gap-4">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-24 w-full bg-secondary/20 animate-pulse rounded-xl" />
+            ))}
+          </div>
+        ) : assignments.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <BookOpen className="w-16 h-16 text-muted-foreground/20 mb-4" />
             <h3 className="text-xl font-display font-bold text-foreground">No assignments yet</h3>
             <p className="text-muted-foreground mt-2 max-w-xs">
-              Click the button above to add your first assignment and start tracking your progress.
+              Your teachers haven't posted any assignments for you yet. Check back later!
             </p>
           </div>
         ) : (
@@ -41,11 +38,7 @@ export default function Assignments() {
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ delay: i * 0.05 }}
                 >
-                  <AssignmentCard 
-                    assignment={assignment} 
-                    onToggleComplete={() => toggleComplete(assignment.id)}
-                    onDelete={() => remove(assignment.id)}
-                  />
+                  <AssignmentCard assignment={assignment} />
                 </motion.div>
               ))}
             </AnimatePresence>

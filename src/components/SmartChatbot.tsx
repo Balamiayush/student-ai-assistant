@@ -22,7 +22,7 @@ const WELCOME_MESSAGE: ChatMessage = {
   id: "welcome",
   role: "assistant",
   content:
-    "Hey there 👋 I'm **StudyPilot AI** — your academic assistant.\n\nAsk me about:\n- 📋 Your assignments & deadlines\n- 👨‍🏫 Who assigned what\n- 📊 Your grades & progress\n- 💡 Any concept you want explained",
+    "Hey there 👋 I'm your **Gulf College AI** assistant.\n\nAsk me about:\n- 📋 Your assignments & deadlines\n- 👨‍🏫 Who assigned what\n- 📊 Your grades & progress\n- 💡 Any concept you want explained",
   timestamp: new Date(),
 };
 
@@ -98,7 +98,7 @@ function TypingIndicator() {
 // ─── Main Component ─────────────────────────────────────────────────────────── 
 
 export function SmartChatbot() {
-  const { user, session } = useAuth() as { user: any; session: any };
+  const { user, session } = useAuth();
 
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
@@ -255,7 +255,7 @@ export function SmartChatbot() {
                   <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-card" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold leading-none">StudyPilot AI</p>
+                  <p className="text-sm font-semibold leading-none">Gulf College AI</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
                     {user?.email
                       ? `Signed in as ${user.email.split("@")[0]}`
@@ -327,7 +327,7 @@ export function SmartChatbot() {
                 </button>
               </form>
               <p className="text-center text-[10px] text-muted-foreground/50 mt-2 tracking-widest uppercase font-medium">
-                Powered by DeepSeek · StudyPilot
+                Powered by DeepSeek · Gulf College
               </p>
             </div>
           </motion.div>

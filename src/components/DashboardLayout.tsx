@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { NotificationBell } from "@/components/NotificationBell";
 import { SmartChatbot } from "@/components/SmartChatbot";
 import { AppSidebar } from "./AppSidebar";
+import { useAuth } from "@/hooks/useAuth";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -13,6 +14,7 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children, title, subtitle, actions }: DashboardLayoutProps) {
+  const { role } = useAuth();
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       {/* Sidebar (Desktop) */}
@@ -24,10 +26,7 @@ export function DashboardLayout({ children, title, subtitle, actions }: Dashboar
         <header className="sticky top-0 z-30 bg-card/80 backdrop-blur-xl border-b border-border">
           <div className="flex items-center justify-between px-6 py-3">
             <div className="flex items-center gap-4 md:hidden">
-              <div className="w-9 h-9 rounded-xl bg-gradient-primary flex items-center justify-center shadow-glow">
-                <BookOpen className="w-4 h-4 text-primary-foreground" />
-              </div>
-              <h1 className="font-display text-lg font-bold text-foreground">StudyPilot</h1>
+              <img src="https://res.cloudinary.com/dfajjqglx/image/upload/v1776504606/image_817_ogrwjm.png" className="w-24" alt="Gulf College Logo" />
             </div>
             
             <div className="hidden md:flex flex-1" />
@@ -35,7 +34,7 @@ export function DashboardLayout({ children, title, subtitle, actions }: Dashboar
             <div className="flex items-center gap-3">
               <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-secondary/60">
                 <GraduationCap className="w-4 h-4 text-primary" />
-                <span className="text-xs font-semibold text-foreground capitalize">Student Mode</span>
+                <span className="text-xs font-semibold text-foreground capitalize">{role || "Student"} Mode</span>
               </div>
               <NotificationBell />
             </div>
