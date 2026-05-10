@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { sendNotification, sendNotificationBulk } from "@/lib/notifications";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -134,18 +134,17 @@ export default function TeacherDashboard() {
         supabase.from("user_roles").select("user_id").eq("role", "student"),
       ]);
 
-
       if (profilesRes.error) throw profilesRes.error;
       if (studentRolesRes.error) throw studentRolesRes.error;
 
-      // 4. Build student list
+      // 4. Build student list — match profiles.id against user_roles.user_id
       const studentIds = new Set(studentRolesRes.data?.map((r) => r.user_id) || []);
       const studentList = (profilesRes.data || [])
         .filter((p: any) => studentIds.has(p.id))
         .map((p: any) => ({
           user_id: p.id,
-          full_name: p.full_name || p.email.split('@')[0], // Fallback to email prefix
-          email: p.email,
+          full_name: p.full_name || p.email?.split('@')[0] || "Unnamed Student",
+          email: p.email || "",
           specialization: p.specialization || "General",
           level: p.level || "Level 4"
         }));
@@ -257,7 +256,7 @@ export default function TeacherDashboard() {
     }
   };
 
-  const getStudent = (userId: string) => students.find((s) => s.id === userId);
+  const getStudent = (userId: string) => students.find((s) => s.user_id === userId);
 
   
   const getAssignmentSubmissions = (assignmentId: string) =>
@@ -591,7 +590,7 @@ export default function TeacherDashboard() {
 
             {filteredSubmissions.map((s, i) => {
               const assignment = assignments.find((a) => a.id === s.assignment_id);
-              const profile = getProfile(s.student_id);
+              const student = getStudent(s.student_id);
               const isGraded = s.grade !== null;
 
               return (

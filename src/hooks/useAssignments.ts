@@ -43,28 +43,40 @@ export function useAssignments() {
     console.log("[useAssignments] Fetching for user:", user.id);
 
     try {
-      // Step 1: Fetch all assignments visible to this student.
-      // The RLS policy allows any authenticated user to SELECT from assignments.
-      const { data: assignmentsData, error: assignmentsError } = await supabase
+      // Step 1: Fetch assignments visible to this student.
+      // 1a. Fetch "all students" assignments
+      const { data: allAssignments, error: allError } = await supabase
         .from("assignments")
         .select("*")
-        .order("due_date", { ascending: true });
+        .eq("assign_to_all", true);
 
-      if (assignmentsError) {
-        console.error("[useAssignments] assignments query failed:", assignmentsError);
-        throw assignmentsError;
-      }
+      if (allError) throw allError;
 
-      console.log("[useAssignments] Assignments fetched:", assignmentsData?.length ?? 0);
+      // 1b. Fetch assignments specifically assigned to this student
+      const { data: studentAssignments, error: studentError } = await supabase
+        .from("assignment_students")
+        .select("assignment_id, assignments(*)")
+        .eq("student_id", user.id);
 
-      if (!assignmentsData || assignmentsData.length === 0) {
+      // Merge & deduplicate
+      const assignmentsMap = new Map<string, any>();
+      (allAssignments || []).forEach((a) => assignmentsMap.set(a.id, a));
+      (studentAssignments || []).forEach((row: any) => {
+        const a = row.assignments;
+        if (a && !assignmentsMap.has(a.id)) assignmentsMap.set(a.id, a);
+      });
+
+      const assignmentsData = Array.from(assignmentsMap.values())
+        .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+
+      console.log("[useAssignments] Assignments fetched:", assignmentsData.length);
+
+      if (assignmentsData.length === 0) {
         setAssignments([]);
         return;
       }
 
       // Step 2: Fetch this student's submissions.
-      // If this fails (empty table, RLS, etc.) we do NOT abort — we just show all as "todo".
-      // The submissions table has: id, assignment_id, student_id, content, file_url, grade, feedback, submitted_at
       let submissionsData: any[] = [];
       const { data: subData, error: submissionsError } = await supabase
         .from("submissions")
@@ -72,7 +84,6 @@ export function useAssignments() {
         .eq("student_id", user.id);
 
       if (submissionsError) {
-        // Log but don't throw — assignments can still render without submission data
         console.warn("[useAssignments] submissions query failed (non-fatal):", submissionsError.message);
       } else {
         submissionsData = subData ?? [];
@@ -82,7 +93,6 @@ export function useAssignments() {
       // Step 3: Combine
       const now = new Date();
       const combined: AssignmentWithSubmission[] = assignmentsData.map((a) => {
-        // submissions.assignment_id references assignments.id — confirmed in types.ts
         const submission = submissionsData.find((s) => s.assignment_id === a.id);
 
         let status: "todo" | "completed" | "overdue" = "todo";

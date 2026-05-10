@@ -48,10 +48,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfileAndRole = useCallback(async (userId: string) => {
     try {
-      // profiles.user_id is the FK → auth.users.id
-      // profiles.id is a separate surrogate PK — do NOT use it to look up by auth user
       const [profileRes, roleRes] = await Promise.all([
-        supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle(),
+        supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
         supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
       ]);
 
@@ -63,7 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return {
         profile: profileRes.data as Profile | null,
-        // prefer user_roles table; fall back to profiles.role column
+        // prioritize user_roles table; fallback to profiles.role
         role: (roleRes.data?.role as AppRole) || (profileRes.data?.role as AppRole) || null,
       };
     } catch (err) {

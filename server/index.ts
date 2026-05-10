@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
-import OpenAI from "openai";
+import { OpenRouter } from "@openrouter/sdk";
 
 dotenv.config();
 
@@ -30,14 +30,9 @@ const supabase = createClient(
   process.env.VITE_SUPABASE_PUBLISHABLE_KEY!
 );
 
-// ── DeepSeek AI client ────────────────────────────────────────────────────────
-const aiClient = new OpenAI({
-  apiKey: process.env.OPENROUTER_API_KEY ?? process.env.DEEPSEEK_API_KEY,
-  baseURL: "https://openrouter.ai/api/v1",
-  defaultHeaders: {
-    "HTTP-Referer": "http://localhost:8080",
-    "X-Title": "StudyPilot",
-  },
+// ── OpenRouter AI client ──────────────────────────────────────────────────────
+const openrouter = new OpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
 });
 
 // ── Intent detection ──────────────────────────────────────────────────────────
@@ -55,17 +50,63 @@ function detectIntent(message: string): Intent {
 // ── Fetch context from Supabase ───────────────────────────────────────────────
 async function fetchContext(userId?: string) {
   try {
-    let query = supabase.from("assignments").select("*");
-    
-    if (userId) query = query.eq("user_id", userId);
+    let assignmentsData: any[] = [];
 
-    const { data, error } = await query.order("due_date", { ascending: true });
+    if (userId) {
+      // For authenticated students: fetch assignments assigned to them
+      // 1. Assignments where assign_to_all = true
+      const { data: allData } = await supabase
+        .from("assignments")
+        .select("*")
+        .eq("assign_to_all", true);
 
-    if (error || !data?.length) return { assignments: "NO_DATA", deadlines: "NO_DATA", grades: "NO_DATA", teachers: "NO_DATA" };
+      // 2. Assignments specifically assigned via junction table
+      const { data: studentData } = await supabase
+        .from("assignment_students")
+        .select("assignment_id, assignments(*)")
+        .eq("student_id", userId);
+
+      // Merge & deduplicate
+      const assignmentsMap = new Map<string, any>();
+      (allData || []).forEach((a: any) => assignmentsMap.set(a.id, a));
+      (studentData || []).forEach((row: any) => {
+        const a = row.assignments;
+        if (a && !assignmentsMap.has(a.id)) assignmentsMap.set(a.id, a);
+      });
+      assignmentsData = Array.from(assignmentsMap.values());
+
+      // Also fetch submissions for this student to determine completion status
+      const { data: subsData } = await supabase
+        .from("submissions")
+        .select("assignment_id")
+        .eq("student_id", userId);
+      const submittedIds = new Set((subsData || []).map((s: any) => s.assignment_id));
+
+      // Tag each assignment with completion status
+      assignmentsData = assignmentsData.map((a: any) => ({
+        ...a,
+        _status: submittedIds.has(a.id) ? "completed" : "pending",
+      }));
+    } else {
+      // For guests / no auth: fetch all assignments
+      const { data, error } = await supabase
+        .from("assignments")
+        .select("*")
+        .order("due_date", { ascending: true });
+
+      if (error || !data?.length) {
+        return { totalAssignments: 0, completed: 0, pending: 0, overdue: 0, assignmentsList: "NO_DATA", deadlinesList: "NO_DATA" };
+      }
+      assignmentsData = data.map((a: any) => ({ ...a, _status: "pending" }));
+    }
+
+    if (assignmentsData.length === 0) {
+      return { totalAssignments: 0, completed: 0, pending: 0, overdue: 0, assignmentsList: "NO_DATA", deadlinesList: "NO_DATA" };
+    }
 
     const now = new Date();
     const stats = {
-      total: data.length,
+      total: assignmentsData.length,
       completed: 0,
       pending: 0,
       overdue: 0,
@@ -73,9 +114,9 @@ async function fetchContext(userId?: string) {
       deadlinesList: [] as string[]
     };
 
-    data.forEach((a: any) => {
+    assignmentsData.forEach((a: any) => {
       const dueDate = new Date(a.due_date);
-      const isCompleted = a.status === "completed";
+      const isCompleted = a._status === "completed";
       const isOverdue = dueDate < now && !isCompleted;
 
       if (isCompleted) stats.completed++;
@@ -84,11 +125,12 @@ async function fetchContext(userId?: string) {
         if (isOverdue) stats.overdue++;
       }
 
-      stats.assignmentsList.push(`- ${a.title} (${a.subject}) | Status: ${a.status} | Due: ${dueDate.toLocaleDateString()}`);
+      const statusLabel = isCompleted ? "completed" : isOverdue ? "overdue" : "pending";
+      stats.assignmentsList.push(`- ${a.title} (${a.subject}) | Status: ${statusLabel} | Due: ${dueDate.toLocaleDateString()}`);
       
       if (isOverdue) {
         stats.deadlinesList.push(`${a.title} — OVERDUE`);
-      } else {
+      } else if (!isCompleted) {
         const diffDays = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
         stats.deadlinesList.push(`${a.title} — Due in ${diffDays} days`);
       }
@@ -103,6 +145,7 @@ async function fetchContext(userId?: string) {
       deadlinesList: stats.deadlinesList.join("\n")
     };
   } catch (err) {
+    console.error("fetchContext error:", err);
     return { totalAssignments: 0, completed: 0, pending: 0, overdue: 0, assignmentsList: "NO_DATA", deadlinesList: "NO_DATA" };
   }
 }
@@ -206,19 +249,30 @@ app.post("/api/chat", async (req, res) => {
 
     const dbContext = await fetchContext(user?.id);
 
-    const completion = await aiClient.chat.completions.create({
-      model: "deepseek/deepseek-chat",
-      max_tokens: 800,
-      temperature: 0.7,
-      messages: [
-        { role: "system", content: buildSystemPrompt({ ...dbContext, userEmail: user?.email }) },
-        { role: "user", content: message.trim() },
-      ],
+    const stream = await openrouter.chat.send({
+      chatRequest: {
+        model: "openai/gpt-oss-120b:free",
+        messages: [
+          { role: "system", content: buildSystemPrompt({ ...dbContext, userEmail: user?.email }) },
+          { role: "user", content: message.trim() },
+        ],
+        stream: true,
+      },
     });
 
-    const reply = completion.choices[0]?.message?.content ?? "No response from AI.";
+    let reply = "";
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content;
+      if (content) {
+        reply += content;
+      }
+      if (chunk.usage) {
+        console.log("📊 Reasoning tokens:", chunk.usage.reasoningTokens);
+      }
+    }
+
     console.log("✅ AI responded");
-    res.json({ reply });
+    res.json({ reply: reply || "No response from AI." });
 
   } catch (err: any) {
     console.error("🔥 /api/chat error:", err.message);
